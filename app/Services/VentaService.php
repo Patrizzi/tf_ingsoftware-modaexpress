@@ -110,10 +110,12 @@ class VentaService
             $impuesto = round($total - $baseImponible, 2);
 
             $canal = $datosVenta['canal'] ?? 'fisico';
-            $codigoComprobante = $datosVenta['codigo_comprobante'] ?? $this->generarCodigoComprobante($canal, (int) $datosVenta['sede_id']);
+            $tipoComprobante = $datosVenta['tipo_comprobante'] ?? 'boleta';
+            $codigoComprobante = $datosVenta['codigo_comprobante'] ?? $this->generarCodigoComprobante($canal, (int) $datosVenta['sede_id'], $tipoComprobante);
 
             $venta = Venta::create([
                 'codigo_comprobante' => $codigoComprobante,
+                'tipo_comprobante' => $tipoComprobante,
                 'sede_id' => $datosVenta['sede_id'],
                 'user_id' => $datosVenta['user_id'] ?? null,
                 'canal' => $canal,
@@ -122,6 +124,9 @@ class VentaService
                 'impuesto' => $impuesto,
                 'total' => $total,
                 'metodo_pago' => $datosVenta['metodo_pago'] ?? 'efectivo',
+                'cliente_documento' => $datosVenta['cliente_documento'] ?? null,
+                'cliente_nombre' => $datosVenta['cliente_nombre'] ?? null,
+                'cliente_direccion' => $datosVenta['cliente_direccion'] ?? null,
             ]);
 
             // 3. Descuento físico, Detalle y Bitácora de Auditoría por cada artículo
@@ -163,17 +168,21 @@ class VentaService
                 $this->alertaService->evaluarInventario($inventario);
             }
 
-            return $venta->load(['detalles.variante.producto', 'sede']);
+            return $venta->load(['detalles.variante.producto', 'sede', 'user']);
         });
     }
 
     /**
-     * Código legible y único: B (tienda) o W (web) + sede + fecha/hora + sufijo aleatorio.
-     * Ej: B01-261008-153012-K7QD
+     * Código legible y único: B (boleta) / F (factura) o W (web) + sede + fecha/hora + sufijo aleatorio.
+     * Ej: B01-261008-153012-K7QD o F01-261008-153012-K7QD
      */
-    protected function generarCodigoComprobante(string $canal, int $sedeId): string
+    protected function generarCodigoComprobante(string $canal, int $sedeId, string $tipoComprobante = 'boleta'): string
     {
-        $prefijo = $canal === 'online' ? 'W' : 'B';
+        if ($canal === 'online') {
+            $prefijo = 'W';
+        } else {
+            $prefijo = $tipoComprobante === 'factura' ? 'F' : 'B';
+        }
 
         return sprintf('%s%02d-%s-%s', $prefijo, $sedeId, now()->format('ymd-His'), strtoupper(Str::random(4)));
     }

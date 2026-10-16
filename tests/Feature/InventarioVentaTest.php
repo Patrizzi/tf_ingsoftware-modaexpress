@@ -284,4 +284,110 @@ class InventarioVentaTest extends TestCase
         $resMov->assertStatus(200);
         $resMov->assertSee('Bitácora de movimientos');
     }
+
+    /**
+     * Prueba POS: Generación de Factura con RUC y visualización del comprobante imprimible
+     */
+    public function test_pos_genera_boleta_y_factura_con_comprobante(): void
+    {
+        $cajero = User::where('email', 'cajero@modaexpress.com')->first();
+        $variante = Variante::where('sku', 'POL-PIM-NEG-S')->first();
+
+        // 1. Factura sin RUC debe fallar validación (422)
+        $resInvalida = $this->actingAs($cajero)->postJson(route('ventas.store'), [
+            'sede_id' => $cajero->sede_id,
+            'tipo_comprobante' => 'factura',
+            'metodo_pago' => 'efectivo',
+            'items' => [['variante_id' => $variante->id, 'cantidad' => 1]],
+        ]);
+        $resInvalida->assertStatus(422);
+
+        // 2. Factura válida con RUC (11 dígitos) y Razón Social -> prefijo F
+        $resFactura = $this->actingAs($cajero)->postJson(route('ventas.store'), [
+            'sede_id' => $cajero->sede_id,
+            'tipo_comprobante' => 'factura',
+            'cliente_documento' => '20608945123',
+            'cliente_nombre' => 'Comercial Textil Peruana S.A.C.',
+            'cliente_direccion' => 'Av. Industrial 540, Lima',
+            'metodo_pago' => 'tarjeta',
+            'items' => [['variante_id' => $variante->id, 'cantidad' => 2]],
+        ]);
+
+        $resFactura->assertStatus(201);
+        $resFactura->assertJsonPath('venta.tipo_comprobante', 'factura');
+        $resFactura->assertJsonPath('venta.cliente.documento', '20608945123');
+        $this->assertStringStartsWith('F', $resFactura->json('venta.codigo'));
+
+        // 3. Ver comprobante imprimible
+        $ventaId = $resFactura->json('venta.id');
+        $resComp = $this->actingAs($cajero)->get(route('ventas.comprobante', $ventaId));
+        $resComp->assertStatus(200);
+        $resComp->assertSee('FACTURA DE VENTA ELECTRÓNICA');
+        $resComp->assertSee('Comercial Textil Peruana S.A.C.');
+        $resComp->assertSee('20608945123');
+    }
+
+    /**
+     * Prueba Módulo de Ingreso de Mercadería: mercadería existente y nueva mercadería con nuevo SKU
+     */
+    public function test_modulo_ingreso_mercaderia_existente_y_nueva(): void
+    {
+        $gerente = User::where('email', 'gerente@modaexpress.com')->first();
+        $variante = Variante::where('sku', 'POL-PIM-NEG-M')->first();
+
+        $inventario = Inventario::where('sede_id', $gerente->sede_id)
+            ->where('variante_id', $variante->id)
+            ->first();
+        $stockAntes = $inventario->stock_fisico;
+
+        // 1. Render vista de ingreso
+        $resVista = $this->actingAs($gerente)->get(route('inventario.ingreso'));
+        $resVista->assertStatus(200);
+        $resVista->assertSee('Ingreso de mercadería');
+
+        // 2. Ingresar cantidad a mercadería existente
+        $resExistente = $this->actingAs($gerente)->post(route('inventario.ingreso.existente'), [
+            'sede_id' => $gerente->sede_id,
+            'variante_id' => $variante->id,
+            'cantidad' => 15,
+            'motivo' => 'Guía GR01-00120',
+        ]);
+        $resExistente->assertRedirect();
+        $resExistente->assertSessionHasNoErrors();
+
+        $inventario->refresh();
+        $this->assertEquals($stockAntes + 15, $inventario->stock_fisico);
+
+        // 3. Registrar nueva mercadería creando nuevo modelo y nuevo SKU
+        $resNueva = $this->actingAs($gerente)->post(route('inventario.ingreso.nueva'), [
+            'sede_id' => $gerente->sede_id,
+            'modo_producto' => 'nuevo',
+            'codigo_modelo' => 'CAS-DNM',
+            'nombre_producto' => 'Casaca Denim Clásica',
+            'categoria' => 'Casacas',
+            'descripcion' => 'Denim 100% algodón',
+            'sku' => 'CAS-DNM-AZU-M',
+            'codigo_barra' => '775009990001',
+            'talla' => 'M',
+            'color' => 'Azul Índigo',
+            'precio' => 179.90,
+            'cantidad' => 25,
+            'stock_minimo' => 5,
+            'stock_objetivo' => 15,
+            'stock_maximo' => 35,
+            'motivo' => 'Lote inicial de temporada',
+        ]);
+        $resNueva->assertRedirect();
+        $resNueva->assertSessionHasNoErrors();
+
+        $nuevaVariante = Variante::where('sku', 'CAS-DNM-AZU-M')->first();
+        $this->assertNotNull($nuevaVariante);
+        $this->assertEquals('Casaca Denim Clásica', $nuevaVariante->producto->nombre);
+
+        $invNuevo = Inventario::where('sede_id', $gerente->sede_id)
+            ->where('variante_id', $nuevaVariante->id)
+            ->first();
+        $this->assertNotNull($invNuevo);
+        $this->assertEquals(25, $invNuevo->stock_fisico);
+    }
 }

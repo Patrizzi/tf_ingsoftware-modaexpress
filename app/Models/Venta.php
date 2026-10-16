@@ -15,6 +15,7 @@ class Venta extends Model
 
     protected $fillable = [
         'codigo_comprobante',
+        'tipo_comprobante',
         'sede_id',
         'user_id',
         'canal',
@@ -23,6 +24,9 @@ class Venta extends Model
         'impuesto',
         'total',
         'metodo_pago',
+        'cliente_documento',
+        'cliente_nombre',
+        'cliente_direccion',
     ];
 
     protected $casts = [

@@ -14,7 +14,8 @@
     ];
     if ($user->isGerente()) {
         $nav[] = ['grupo' => 'Gestión', 'items' => [
-            ['ruta' => 'inventario.umbrales', 'activo' => 'inventario.*', 'texto' => 'Umbrales', 'icono' => 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75'],
+            ['ruta' => 'inventario.ingreso', 'activo' => 'inventario.ingreso*', 'texto' => 'Ingreso de mercadería', 'icono' => 'M12 4.5v15m7.5-7.5h-15'],
+            ['ruta' => 'inventario.umbrales', 'activo' => 'inventario.umbral*', 'texto' => 'Umbrales', 'icono' => 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75'],
             ['ruta' => 'movimientos.index', 'activo' => 'movimientos.*', 'texto' => 'Movimientos', 'icono' => 'M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z'],
         ]];
     }
